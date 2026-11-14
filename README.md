@@ -32,11 +32,14 @@ Also available for [VS Code](https://github.com/stillgbx/miami26-vscode) and [Vi
 
 ## Install
 
-In Claude Code:
+In Claude Code, add this repository as a marketplace, then install the plugin from it:
 
 ```
-/plugin install miami26 --marketplace stillgbx/miami26-claude
+/plugin marketplace add stillgbx/miami26-claude
+/plugin install miami26@miami26
 ```
+
+In the Claude desktop app, you can also open *Settings > Plugins*, add the marketplace `stillgbx/miami26-claude` with **Add**, then install **miami26**.
 
 The look shows in the desktop and mobile apps. The terminal and the editors don't draw themes.
 
