@@ -1,0 +1,14 @@
+{
+  "name": "miami26",
+  "owner": {
+    "name": "stillgbx"
+  },
+  "description": "Miami '26 color themes for Claude Desktop.",
+  "plugins": [
+    {
+      "name": "miami26",
+      "source": "./",
+      "description": "Miami '26 for Claude Desktop: Bay and Sunset palettes, dark and light, over an animated Miami seafront."
+    }
+  ]
+}
