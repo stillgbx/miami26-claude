@@ -49,7 +49,7 @@ The look shows in the desktop and mobile apps. The terminal and the editors don'
 /miami26 sunset     the Sunset palette (default)
 /miami26 bay        the Bay palette
 /miami26 scene      the animated seafront behind the conversation (default)
-/miami26 still      the colors alone, over a plain gradient
+/miami26 still      the colors alone, without the seafront
 /miami26 off        back to the app's own look, for this session
 ```
 

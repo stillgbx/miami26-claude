@@ -8,7 +8,7 @@ import { sceneSvg } from './scene'
 // themes, each in dark and light, over an animated Miami seafront.
 //
 //   /miami26 bay | sunset     pick the palette
-//   /miami26 scene | still    the animated seafront, or the colors over a plain ground
+//   /miami26 scene | still    the animated seafront, or the colors alone
 //   /miami26 off              back to the app's own look (for this session)
 
 type Backdrop = 'scene' | 'still'
@@ -47,13 +47,12 @@ async function apply($: EngineInterface): Promise<string> {
   const look = LOOKS[palette]
   if (look.unpainted !== undefined) $.ui.toast(look.unpainted)
 
-  const args: ThemeSetArgs = {
-    colors: look.theme,
-    backdrop:
-      backdrop === 'scene'
-        ? { scene: SCENE_PREFIX + palette, glass: { blur: 18, opacity: 0.6 } }
-        : { gradient: { stops: ['surface-0', 'surface-2'], angle: 180 } },
-  }
+  // Still is the colors alone: with no backdrop, the app draws its own ground in them,
+  // and the prompt box sits on it with no seam.
+  const args: ThemeSetArgs =
+    backdrop === 'scene'
+      ? { colors: look.theme, backdrop: { scene: SCENE_PREFIX + palette, glass: { blur: 18, opacity: 0.6 } } }
+      : { colors: look.theme }
   const set = await $.theme.set(args)
   if (!set.isDrawn) return `${look.palette.label} is set, but nothing draws it here: ${set.reason}`
   return `${look.palette.label}${backdrop === 'scene' ? ', over the seafront' : ''}.`
