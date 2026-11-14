@@ -4,8 +4,12 @@
 // into the haze, the sea with a shimmering path under the sun, a Streamline Deco hotel
 // with a neon fin on the right, a sand spit on the left, birds gliding, and palm trees
 // swaying at both edges. The middle stays calm: that's where the words sit.
-// The colors are CSS variables: dark by default, light under `prefers-color-scheme: light`.
+// The colors are CSS variables, each `light-dark(light, dark)`: they follow the app's mode
+// with no media query, since the desktop app draws still a scene that holds one (but the
+// reduced-motion query, which it keeps).
 // No script, nothing loaded: CSS animations only, stopped under reduced motion.
+// Every style sits in the <style> sheet, none in a style attribute: a surface may draw the
+// scene under a policy that drops style attributes.
 
 import type { Palette, SceneColors } from './palettes'
 
@@ -15,10 +19,31 @@ const HORIZON = 640
 
 const kebab = (key: string): string => '--' + key.replace(/[A-Z]/g, c => '-' + c.toLowerCase())
 
-const vars = (colors: SceneColors): string =>
-  Object.entries(colors)
-    .map(([key, value]) => `${kebab(key)}:${value}`)
-    .join(';')
+/** A six-digit color with an opacity from 0 to 1, as eight-digit hex. */
+const withAlpha = (color: string, opacity: string): string =>
+  color +
+  Math.round(Number(opacity) * 255)
+    .toString(16)
+    .padStart(2, '0')
+
+/**
+ * Every scene color as `light-dark()`. The two opacities that differ by mode can't be one
+ * (light-dark picks colors only), so they ride in the alpha of their colors instead:
+ * `--window-lit`, `--window-dim` and `--neon-lit`.
+ */
+function vars(light: SceneColors, dark: SceneColors): string {
+  const pick = (l: string, d: string): string => `light-dark(${l},${d})`
+  const entries = (Object.keys(dark) as (keyof SceneColors)[])
+    .filter(key => key !== 'windowOpacity' && key !== 'neonOpacity')
+    .map(key => `${kebab(key)}:${pick(light[key], dark[key])}`)
+  const dim = (opacity: string): string => String(Number(opacity) * 0.6)
+  entries.push(
+    `--window-lit:${pick(withAlpha(light.window, light.windowOpacity), withAlpha(dark.window, dark.windowOpacity))}`,
+    `--window-dim:${pick(withAlpha(light.window, dim(light.windowOpacity)), withAlpha(dark.window, dim(dark.windowOpacity)))}`,
+    `--neon-lit:${pick(withAlpha(light.neon, light.neonOpacity), withAlpha(dark.neon, dark.neonOpacity))}`,
+  )
+  return `color-scheme:light dark;${entries.join(';')}`
+}
 
 // A small deterministic random, so the scene is the same on every load.
 function random(seed: number): () => number {
@@ -119,10 +144,12 @@ function palm(x: number, base: number, height: number, lean: number, scale: numb
     const half = w * (1 - t * 0.6)
     rings += `M${p(px - half, base - height * t)}q${f(half)} ${f(3 * scale)} ${f(half * 2)} 0`
   }
+  // The crown sways about its own point: moved there first, it turns about its origin, so no
+  // transform-origin is needed. Its delay is a class, `d0` to `d5` (seconds ahead).
   return (
     `<g class="palm"><path d="${trunk}"/><path class="rings" d="${rings}"/>` +
-    `<g class="crown" style="transform-origin:${f(cx)}px ${f(cy)}px;animation-delay:${delay}s">` +
-    `<use href="#${crownId}" transform="translate(${f(cx)} ${f(cy)}) scale(${flip ? -scale : scale} ${scale})"/></g></g>`
+    `<g transform="translate(${f(cx)} ${f(cy)})"><g class="crown d${-delay}">` +
+    `<use href="#${crownId}" transform="scale(${flip ? -scale : scale} ${scale})"/></g></g></g>`
   )
 }
 
@@ -231,9 +258,9 @@ function clouds(seed: number): string {
 
 /** A few birds gliding across, each flapping slowly. */
 function birds(): string {
-  const bird = (x: number, y: number, s: number, delay: number): string =>
-    `<g transform="translate(${x} ${y}) scale(${s})"><path class="wing" style="animation-delay:${delay}s" d="M-14 0Q-7-7 0 0Q7-7 14 0"/></g>`
-  return `<g class="birds">${bird(420, 190, 1, 0)}${bird(456, 210, 0.8, -0.6)}${bird(392, 222, 0.7, -1.1)}${bird(560, 160, 0.6, -0.3)}</g>`
+  const bird = (x: number, y: number, s: number, n: number): string =>
+    `<g transform="translate(${x} ${y}) scale(${s})"><path class="wing w${n}" d="M-14 0Q-7-7 0 0Q7-7 14 0"/></g>`
+  return `<g class="birds">${bird(420, 190, 1, 0)}${bird(456, 210, 0.8, 1)}${bird(392, 222, 0.7, 2)}${bird(560, 160, 0.6, 3)}</g>`
 }
 
 /** The sun's path on the water: short dashes that flicker, widening toward the shore. */
@@ -247,7 +274,7 @@ function shimmer(sunX: number, seed: number): string {
     for (let i = 0; i < n; i++) {
       const x = sunX + (rnd() - 0.5) * 2 * spread
       const w = 14 + rnd() * (30 + t * 70)
-      dashes += `<rect x="${f(x - w / 2)}" y="${f(y)}" width="${f(w)}" height="${(1.5 + t * 3).toFixed(1)}" style="animation-delay:${(-rnd() * 4).toFixed(1)}s"/>`
+      dashes += `<rect x="${f(x - w / 2)}" y="${f(y)}" width="${f(w)}" height="${(1.5 + t * 3).toFixed(1)}" class="k${Math.floor(rnd() * 8)}"/>`
     }
   }
   let swells = ''
@@ -289,13 +316,13 @@ const STYLE =
   `.r0{stop-color:var(--sky-low);stop-opacity:.5}.r1{stop-color:var(--sky-low);stop-opacity:0}` +
   `.ta{fill:var(--tower-a)}.tb{fill:var(--tower-b)}.tc{fill:var(--tower-c)}` +
   `.shade{fill:#000;opacity:.14}.edge{fill:#fff;opacity:.16}` +
-  `.balc{fill:url(#balc)}.bl{fill:#fff;opacity:.22}.bw{fill:var(--window);opacity:calc(var(--window-opacity) * .6)}` +
+  `.balc{fill:url(#balc)}.bl{fill:#fff;opacity:.22}.bw{fill:var(--window-dim)}` +
   `.far-row{opacity:.55}` +
   `.hotel .body{fill:var(--hotel)}.hotel .trim{fill:var(--hotel-trim)}.hotel .shadow{fill:#000;opacity:.12}` +
-  `.lit{fill:var(--window);opacity:var(--window-opacity)}.dim{fill:#000;opacity:.22}` +
+  `.lit{fill:var(--window-lit)}.dim{fill:#000;opacity:.22}` +
   `.f0{stop-color:#fff;stop-opacity:.14}.f1{stop-color:#000;stop-opacity:.22}` +
   `.k0{stop-color:#000;stop-opacity:.25}.k1{stop-color:#fff;stop-opacity:.22}.k2{stop-color:#000;stop-opacity:0}` +
-  `.neon{fill:none;stroke:var(--neon);stroke-linejoin:round;opacity:var(--neon-opacity)}` +
+  `.neon{fill:none;stroke:var(--neon-lit);stroke-linejoin:round}` +
   `.neon.line{stroke-width:2.5}.neon.halo{stroke-width:16;stroke-opacity:.18;animation:hum 6s linear infinite}` +
   `.shore{fill:var(--shore)}` +
   `.far{opacity:.7;animation:drift 100s ease-in-out infinite alternate}` +
@@ -308,6 +335,11 @@ const STYLE =
   `.palm{fill:var(--palm)}.palm .rings{fill:none;stroke:#000;stroke-opacity:.18;stroke-width:1.5}` +
   `.back .palm{fill:var(--palm-far)}` +
   `.crown{animation:sway 9s ease-in-out infinite alternate}` +
+  // Delays as classes: palm crowns d0 to d5, wings w0 to w3, shimmer dashes k0 to k7.
+  `.d0{animation-delay:0s}.d2{animation-delay:-2s}.d3{animation-delay:-3s}.d4{animation-delay:-4s}.d5{animation-delay:-5s}` +
+  `.w1{animation-delay:-.6s}.w2{animation-delay:-1.1s}.w3{animation-delay:-.3s}` +
+  `.shimmer .k1{animation-delay:-.5s}.shimmer .k2{animation-delay:-1s}.shimmer .k3{animation-delay:-1.5s}` +
+  `.shimmer .k4{animation-delay:-2s}.shimmer .k5{animation-delay:-2.5s}.shimmer .k6{animation-delay:-3s}.shimmer .k7{animation-delay:-3.5s}` +
   `@keyframes sway{from{transform:rotate(-1.4deg)}to{transform:rotate(1.8deg)}}` +
   `@keyframes drift{from{transform:translateX(-50px)}to{transform:translateX(70px)}}` +
   `@keyframes glide{from{transform:translate(-80px,10px)}to{transform:translate(260px,-30px)}}` +
@@ -316,9 +348,8 @@ const STYLE =
   `@keyframes flicker{0%,100%{opacity:.15}50%{opacity:.85}}` +
   `@keyframes swell{from{transform:translateX(-30px)}to{transform:translateX(40px)}}` +
   `@keyframes hum{0%,100%{stroke-opacity:.18}46%{stroke-opacity:.26}48%{stroke-opacity:.06}50%{stroke-opacity:.26}}` +
-  // A narrow box (a phone, a tall window): bring the palms, the hotel and the sun in from the edges.
-  `@media (max-aspect-ratio:5/4){.left{transform:translateX(330px)}.right{transform:translateX(-330px)}.sunpos{transform:translateX(-120px)}}` +
-  `@media (max-aspect-ratio:3/4){.left{transform:translateX(500px)}.right{transform:translateX(-480px)}.sunpos{transform:translateX(-200px)}}` +
+  // No media query on the box's size or shape (aspect-ratio, orientation): the desktop app
+  // stops every animation of a scene that holds one.
   `@media (prefers-reduced-motion:reduce){*{animation:none!important}}`
 
 const DEFS =
@@ -340,8 +371,7 @@ const DEFS =
 export function sceneSvg(palette: Palette): string {
   const sunClip = palette.sun.y + palette.sun.r > HORIZON
   const style =
-    `svg{${vars(palette.dark.scene)}}` +
-    `@media (prefers-color-scheme: light){svg{${vars(palette.light.scene)}}}` +
+    `svg{${vars(palette.light.scene, palette.dark.scene)}}` +
     STYLE
 
   const body =
